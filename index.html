@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' blob: data:;">
+    <title>Image Posterizer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Image Posterizer</h1>
+            <p>Transform your images into posterized art with custom color palettes</p>
+        </header>
+
+        <main>
+            <!-- File Upload Section -->
+            <section class="upload-section">
+                <label for="imageInput" class="upload-label">
+                    <input type="file" id="imageInput" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" />
+                    <span class="upload-button">Choose Image</span>
+                </label>
+                <span id="fileName" class="file-name"></span>
+            </section>
+
+            <!-- Preview Section -->
+            <section class="preview-section">
+                <div class="preview-container">
+                    <div class="preview-box">
+                        <h3>Original</h3>
+                        <canvas id="originalCanvas"></canvas>
+                    </div>
+                    <div class="preview-box">
+                        <h3>Posterized</h3>
+                        <canvas id="outputCanvas"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Controls Section -->
+            <section class="controls-section">
+                <div class="control-group">
+                    <label for="colorCount">
+                        Number of Colors: <span id="colorCountValue">5</span>
+                    </label>
+                    <input type="range" id="colorCount" min="2" max="16" value="5" />
+                </div>
+
+                <div class="control-group">
+                    <label>Posterization Mode:</label>
+                    <div class="radio-group">
+                        <label>
+                            <input type="radio" name="mode" value="replace" checked />
+                            Replace Colors
+                        </label>
+                        <label>
+                            <input type="radio" name="mode" value="closest" />
+                            Closest Match
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Color Palette Section -->
+            <section class="palette-section">
+                <h3>Color Palette</h3>
+                <div id="colorPalette" class="color-palette"></div>
+            </section>
+
+            <!-- Export Section -->
+            <section class="export-section">
+                <h3>Export Options</h3>
+                <div class="export-buttons">
+                    <button id="exportPng" class="export-btn" disabled>Save as PNG</button>
+                    <button id="exportJpg" class="export-btn" disabled>Save as JPG</button>
+                    <button id="exportSvg" class="export-btn" disabled>Save as SVG</button>
+                </div>
+                <div class="svg-options" id="svgOptions" style="display: none;">
+                    <label>SVG Complexity:</label>
+                    <div class="radio-group">
+                        <label>
+                            <input type="radio" name="svgComplexity" value="simple" checked />
+                            Simple (More Smoothing)
+                        </label>
+                        <label>
+                            <input type="radio" name="svgComplexity" value="complex" />
+                            Complex (Less Smoothing)
+                        </label>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>All processing happens in your browser - your images never leave your device</p>
+        </footer>
+    </div>
+
+    <!-- Color Picker Modal -->
+    <div id="colorPickerModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Choose Color</h3>
+            <div class="color-picker-content">
+                <input type="color" id="colorPicker" />
+                <button id="eyeDropperBtn" class="tool-btn">Pick from Original Image</button>
+                <button id="applyColorBtn" class="tool-btn primary">Apply</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Eye Dropper Overlay -->
+    <div id="eyeDropperOverlay" class="eye-dropper-overlay" style="display: none;">
+        <canvas id="eyeDropperCanvas"></canvas>
+        <div class="eye-dropper-info">Click on the image to pick a color. Press ESC to cancel.</div>
+    </div>
+
+    <script src="posterize.js"></script>
+    <script src="svg-export.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
