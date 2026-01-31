@@ -419,4 +419,49 @@ class Posterizer {
 
         return newData;
     }
+
+    /**
+     * Apply smooth filter to reduce pixelation
+     * Uses a simple 3x3 box blur kernel
+     * @param {ImageData} imageData - Canvas image data
+     * @returns {ImageData} Smoothed image data
+     */
+    applySmoothFilter(imageData) {
+        const width = imageData.width;
+        const height = imageData.height;
+        const data = imageData.data;
+        const newData = new ImageData(
+            new Uint8ClampedArray(data),
+            width,
+            height
+        );
+
+        // Apply 3x3 box blur
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                let r = 0, g = 0, b = 0, count = 0;
+
+                // Sample 3x3 neighborhood
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        const idx = ((y + dy) * width + (x + dx)) * 4;
+                        r += data[idx];
+                        g += data[idx + 1];
+                        b += data[idx + 2];
+                        count++;
+                    }
+                }
+
+                // Average the values
+                const outIdx = (y * width + x) * 4;
+                newData.data[outIdx] = Math.round(r / count);
+                newData.data[outIdx + 1] = Math.round(g / count);
+                newData.data[outIdx + 2] = Math.round(b / count);
+                // Keep original alpha
+                newData.data[outIdx + 3] = data[outIdx + 3];
+            }
+        }
+
+        return newData;
+    }
 }

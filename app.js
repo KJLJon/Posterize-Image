@@ -13,10 +13,12 @@ class PosterizeApp {
         this.originalImage = null;
         this.originalImageData = null;
         this.posterizedImageData = null;
+        this.originalPosterizedImageData = null; // Save original before transparency
         this.currentPalette = [];
         this.currentColorCount = 5;
         this.currentMode = 'replace';
         this.selectedColorIndex = -1;
+        this.smoothing = false; // Anti-aliasing option
 
         // Transparency tool state
         this.transparencyToolActive = false;
@@ -58,6 +60,14 @@ class PosterizeApp {
             });
         });
 
+        // Smoothing checkbox
+        document.getElementById('smoothingCheckbox').addEventListener('change', (e) => {
+            this.smoothing = e.target.checked;
+            if (this.originalImageData) {
+                this.applyPosterization();
+            }
+        });
+
         // Export buttons
         document.getElementById('exportPng').addEventListener('click', () => this.exportImage('png'));
         document.getElementById('exportJpg').addEventListener('click', () => this.exportImage('jpg'));
@@ -86,6 +96,7 @@ class PosterizeApp {
 
         // Transparency tool
         document.getElementById('enableTransparencyTool').addEventListener('click', () => this.toggleTransparencyTool());
+        document.getElementById('resetToOriginal').addEventListener('click', () => this.resetToOriginalPosterization());
         document.getElementById('clearTransparency').addEventListener('click', () => this.clearTransparency());
 
         // Transparency method selection
@@ -213,17 +224,35 @@ class PosterizeApp {
     applyPosterization() {
         if (!this.originalImageData) return;
 
+        // Apply smoothing if enabled
+        let sourceData = this.originalImageData;
+        if (this.smoothing) {
+            sourceData = this.posterizer.applySmoothFilter(this.originalImageData);
+        }
+
         if (this.currentMode === 'replace') {
             this.posterizedImageData = this.posterizer.posterizeReplace(
-                this.originalImageData,
+                sourceData,
                 this.currentPalette
             );
         } else {
             this.posterizedImageData = this.posterizer.posterizeClosest(
-                this.originalImageData,
+                sourceData,
                 this.currentPalette
             );
         }
+
+        // Save original posterized state (before transparency)
+        this.originalPosterizedImageData = new ImageData(
+            new Uint8ClampedArray(this.posterizedImageData.data),
+            this.posterizedImageData.width,
+            this.posterizedImageData.height
+        );
+
+        // Clear transparency state since we're re-posterizing
+        this.hasTransparency = false;
+        this.outputCanvas.classList.remove('has-transparency');
+        document.getElementById('clearTransparency').disabled = true;
 
         // Display posterized image
         this.outputCtx.putImageData(this.posterizedImageData, 0, 0);
@@ -499,8 +528,34 @@ class PosterizeApp {
         this.outputCanvas.classList.add('has-transparency');
         this.outputCtx.putImageData(this.posterizedImageData, 0, 0);
 
-        // Enable clear button
+        // Enable reset and clear buttons
+        document.getElementById('resetToOriginal').disabled = false;
         document.getElementById('clearTransparency').disabled = false;
+    }
+
+    /**
+     * Reset to original posterization (before transparency was applied)
+     */
+    resetToOriginalPosterization() {
+        if (!this.originalPosterizedImageData) return;
+
+        // Restore original posterized state
+        this.posterizedImageData = new ImageData(
+            new Uint8ClampedArray(this.originalPosterizedImageData.data),
+            this.originalPosterizedImageData.width,
+            this.originalPosterizedImageData.height
+        );
+
+        // Clear transparency state
+        this.hasTransparency = false;
+        this.outputCanvas.classList.remove('has-transparency');
+
+        // Update display
+        this.outputCtx.putImageData(this.posterizedImageData, 0, 0);
+
+        // Disable buttons
+        document.getElementById('resetToOriginal').disabled = true;
+        document.getElementById('clearTransparency').disabled = true;
     }
 
     /**
@@ -510,6 +565,7 @@ class PosterizeApp {
         this.hasTransparency = false;
         this.outputCanvas.classList.remove('has-transparency');
         this.applyPosterization();
+        document.getElementById('resetToOriginal').disabled = true;
         document.getElementById('clearTransparency').disabled = true;
     }
 }

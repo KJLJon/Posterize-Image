@@ -60,6 +60,13 @@
                         </label>
                     </div>
                 </div>
+
+                <div class="control-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="smoothingCheckbox" />
+                        <span>Enable Smoothing (reduces pixelation)</span>
+                    </label>
+                </div>
             </section>
 
             <!-- Transparency Section -->
@@ -84,6 +91,9 @@
                 <div class="transparency-buttons">
                     <button id="enableTransparencyTool" class="tool-btn" disabled>
                         Enable Transparency Tool
+                    </button>
+                    <button id="resetToOriginal" class="tool-btn" disabled>
+                        Reset to Original Posterization
                     </button>
                     <button id="clearTransparency" class="tool-btn" disabled>
                         Clear All Transparency
