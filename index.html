@@ -60,6 +60,49 @@
                         </label>
                     </div>
                 </div>
+
+                <div class="control-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="smoothingCheckbox" />
+                        <span>Enable Smoothing (reduces pixelation)</span>
+                    </label>
+                </div>
+            </section>
+
+            <!-- Transparency Section -->
+            <section class="transparency-section">
+                <h3>Transparency Tool</h3>
+                <p class="section-description">Make parts of your image transparent</p>
+
+                <div class="control-group">
+                    <label>Selection Method:</label>
+                    <div class="radio-group">
+                        <label>
+                            <input type="radio" name="transparencyMethod" value="area" checked />
+                            By Area (Touching Region)
+                        </label>
+                        <label>
+                            <input type="radio" name="transparencyMethod" value="color" />
+                            By Color (All Instances)
+                        </label>
+                    </div>
+                </div>
+
+                <div class="transparency-buttons">
+                    <button id="enableTransparencyTool" class="tool-btn" disabled>
+                        Enable Transparency Tool
+                    </button>
+                    <button id="resetToOriginal" class="tool-btn" disabled>
+                        Reset to Original Posterization
+                    </button>
+                    <button id="clearTransparency" class="tool-btn" disabled>
+                        Clear All Transparency
+                    </button>
+                </div>
+
+                <div id="transparencyInfo" class="transparency-info" style="display: none;">
+                    Click on the posterized image to make that region transparent
+                </div>
             </section>
 
             <!-- Color Palette Section -->

@@ -13,10 +13,17 @@ class PosterizeApp {
         this.originalImage = null;
         this.originalImageData = null;
         this.posterizedImageData = null;
+        this.originalPosterizedImageData = null; // Save original before transparency
         this.currentPalette = [];
         this.currentColorCount = 5;
         this.currentMode = 'replace';
         this.selectedColorIndex = -1;
+        this.smoothing = false; // Anti-aliasing option
+
+        // Transparency tool state
+        this.transparencyToolActive = false;
+        this.transparencyMethod = 'area';
+        this.hasTransparency = false;
 
         // File size limit: 10MB
         this.maxFileSize = 10 * 1024 * 1024;
@@ -53,6 +60,14 @@ class PosterizeApp {
             });
         });
 
+        // Smoothing checkbox
+        document.getElementById('smoothingCheckbox').addEventListener('change', (e) => {
+            this.smoothing = e.target.checked;
+            if (this.originalImageData) {
+                this.applyPosterization();
+            }
+        });
+
         // Export buttons
         document.getElementById('exportPng').addEventListener('click', () => this.exportImage('png'));
         document.getElementById('exportJpg').addEventListener('click', () => this.exportImage('jpg'));
@@ -75,8 +90,25 @@ class PosterizeApp {
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 this.deactivateEyeDropper();
+                this.deactivateTransparencyTool();
             }
         });
+
+        // Transparency tool
+        document.getElementById('enableTransparencyTool').addEventListener('click', () => this.toggleTransparencyTool());
+        document.getElementById('resetToOriginal').addEventListener('click', () => this.resetToOriginalPosterization());
+        document.getElementById('clearTransparency').addEventListener('click', () => this.clearTransparency());
+
+        // Transparency method selection
+        const transparencyMethodRadios = document.querySelectorAll('input[name="transparencyMethod"]');
+        transparencyMethodRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                this.transparencyMethod = e.target.value;
+            });
+        });
+
+        // Output canvas click for transparency tool
+        this.outputCanvas.addEventListener('click', (e) => this.handleOutputCanvasClick(e));
     }
 
     /**
@@ -162,6 +194,9 @@ class PosterizeApp {
         document.getElementById('exportPng').disabled = false;
         document.getElementById('exportJpg').disabled = false;
         document.getElementById('exportSvg').disabled = false;
+
+        // Enable transparency tool
+        document.getElementById('enableTransparencyTool').disabled = false;
     }
 
     /**
@@ -189,17 +224,35 @@ class PosterizeApp {
     applyPosterization() {
         if (!this.originalImageData) return;
 
+        // Apply smoothing if enabled
+        let sourceData = this.originalImageData;
+        if (this.smoothing) {
+            sourceData = this.posterizer.applySmoothFilter(this.originalImageData);
+        }
+
         if (this.currentMode === 'replace') {
             this.posterizedImageData = this.posterizer.posterizeReplace(
-                this.originalImageData,
+                sourceData,
                 this.currentPalette
             );
         } else {
             this.posterizedImageData = this.posterizer.posterizeClosest(
-                this.originalImageData,
+                sourceData,
                 this.currentPalette
             );
         }
+
+        // Save original posterized state (before transparency)
+        this.originalPosterizedImageData = new ImageData(
+            new Uint8ClampedArray(this.posterizedImageData.data),
+            this.posterizedImageData.width,
+            this.posterizedImageData.height
+        );
+
+        // Clear transparency state since we're re-posterizing
+        this.hasTransparency = false;
+        this.outputCanvas.classList.remove('has-transparency');
+        document.getElementById('clearTransparency').disabled = true;
 
         // Display posterized image
         this.outputCtx.putImageData(this.posterizedImageData, 0, 0);
@@ -338,7 +391,26 @@ class PosterizeApp {
         const mimeType = format === 'png' ? 'image/png' : 'image/jpeg';
         const quality = format === 'jpg' ? 0.95 : undefined;
 
-        this.outputCanvas.toBlob((blob) => {
+        let canvas = this.outputCanvas;
+
+        // For JPG with transparency, create a composite with white background
+        if (format === 'jpg' && this.hasTransparency) {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = this.outputCanvas.width;
+            tempCanvas.height = this.outputCanvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+
+            // Fill with white background
+            tempCtx.fillStyle = '#FFFFFF';
+            tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+            // Draw posterized image on top
+            tempCtx.drawImage(this.outputCanvas, 0, 0);
+
+            canvas = tempCanvas;
+        }
+
+        canvas.toBlob((blob) => {
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.download = `posterized.${format}`;
@@ -379,6 +451,122 @@ class PosterizeApp {
         link.href = url;
         link.click();
         URL.revokeObjectURL(url);
+    }
+
+    /**
+     * Toggle transparency tool on/off
+     */
+    toggleTransparencyTool() {
+        this.transparencyToolActive = !this.transparencyToolActive;
+
+        const button = document.getElementById('enableTransparencyTool');
+        const info = document.getElementById('transparencyInfo');
+        const canvas = this.outputCanvas;
+
+        if (this.transparencyToolActive) {
+            button.textContent = 'Disable Transparency Tool';
+            button.classList.add('primary');
+            info.style.display = 'block';
+            canvas.classList.add('transparency-active');
+        } else {
+            button.textContent = 'Enable Transparency Tool';
+            button.classList.remove('primary');
+            info.style.display = 'none';
+            canvas.classList.remove('transparency-active');
+        }
+    }
+
+    /**
+     * Deactivate transparency tool
+     */
+    deactivateTransparencyTool() {
+        if (this.transparencyToolActive) {
+            this.toggleTransparencyTool();
+        }
+    }
+
+    /**
+     * Handle click on output canvas for transparency tool
+     * @param {Event} e - Click event
+     */
+    handleOutputCanvasClick(e) {
+        if (!this.transparencyToolActive || !this.posterizedImageData) return;
+
+        const rect = this.outputCanvas.getBoundingClientRect();
+        const scaleX = this.outputCanvas.width / rect.width;
+        const scaleY = this.outputCanvas.height / rect.height;
+        const x = Math.floor((e.clientX - rect.left) * scaleX);
+        const y = Math.floor((e.clientY - rect.top) * scaleY);
+
+        // Get pixel color at click position
+        const idx = (y * this.outputCanvas.width + x) * 4;
+        const clickedColor = [
+            this.posterizedImageData.data[idx],
+            this.posterizedImageData.data[idx + 1],
+            this.posterizedImageData.data[idx + 2]
+        ];
+
+        if (this.transparencyMethod === 'area') {
+            // Use flood fill to make region transparent
+            this.posterizedImageData = this.posterizer.makeRegionTransparent(
+                this.posterizedImageData,
+                x,
+                y,
+                30
+            );
+        } else {
+            // Make all instances of this color transparent
+            this.posterizedImageData = this.posterizer.makeColorTransparent(
+                this.posterizedImageData,
+                clickedColor,
+                10
+            );
+        }
+
+        // Update display
+        this.hasTransparency = true;
+        this.outputCanvas.classList.add('has-transparency');
+        this.outputCtx.putImageData(this.posterizedImageData, 0, 0);
+
+        // Enable reset and clear buttons
+        document.getElementById('resetToOriginal').disabled = false;
+        document.getElementById('clearTransparency').disabled = false;
+    }
+
+    /**
+     * Reset to original posterization (before transparency was applied)
+     */
+    resetToOriginalPosterization() {
+        if (!this.originalPosterizedImageData) return;
+
+        // Restore original posterized state
+        this.posterizedImageData = new ImageData(
+            new Uint8ClampedArray(this.originalPosterizedImageData.data),
+            this.originalPosterizedImageData.width,
+            this.originalPosterizedImageData.height
+        );
+
+        // Clear transparency state
+        this.hasTransparency = false;
+        this.outputCanvas.classList.remove('has-transparency');
+
+        // Update display
+        this.outputCtx.putImageData(this.posterizedImageData, 0, 0);
+
+        // Disable buttons
+        document.getElementById('resetToOriginal').disabled = true;
+        document.getElementById('clearTransparency').disabled = true;
+    }
+
+    /**
+     * Clear all transparency and reapply posterization
+     */
+    clearTransparency() {
+        this.hasTransparency = false;
+        this.outputCanvas.classList.remove('has-transparency');
+        this.applyPosterization();
+        document.getElementById('resetToOriginal').disabled = true;
+        document.getElementById('clearTransparency').disabled = true;
     }
 }
 

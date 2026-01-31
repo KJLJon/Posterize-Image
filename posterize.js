@@ -320,4 +320,148 @@ class Posterizer {
             parseInt(result[3], 16)
         ] : [0, 0, 0];
     }
+
+    /**
+     * Flood fill algorithm to find connected region
+     * @param {ImageData} imageData - Canvas image data
+     * @param {number} x - Starting x coordinate
+     * @param {number} y - Starting y coordinate
+     * @param {number} tolerance - Color tolerance (0-255)
+     * @returns {Array} Array of pixel coordinates [x, y] in the region
+     */
+    floodFill(imageData, x, y, tolerance = 30) {
+        const width = imageData.width;
+        const height = imageData.height;
+        const data = imageData.data;
+
+        // Get starting pixel color
+        const startIdx = (y * width + x) * 4;
+        const startColor = [data[startIdx], data[startIdx + 1], data[startIdx + 2]];
+
+        // Track visited pixels
+        const visited = new Set();
+        const region = [];
+        const queue = [[x, y]];
+
+        while (queue.length > 0) {
+            const [cx, cy] = queue.shift();
+            const key = `${cx},${cy}`;
+
+            if (visited.has(key)) continue;
+            if (cx < 0 || cx >= width || cy < 0 || cy >= height) continue;
+
+            visited.add(key);
+
+            const idx = (cy * width + cx) * 4;
+            const currentColor = [data[idx], data[idx + 1], data[idx + 2]];
+
+            // Check if color is similar enough
+            if (this.colorDistance(currentColor, startColor) <= tolerance) {
+                region.push([cx, cy]);
+
+                // Add neighbors to queue
+                queue.push([cx + 1, cy]);
+                queue.push([cx - 1, cy]);
+                queue.push([cx, cy + 1]);
+                queue.push([cx, cy - 1]);
+            }
+        }
+
+        return region;
+    }
+
+    /**
+     * Make a region transparent by area (flood fill)
+     * @param {ImageData} imageData - Canvas image data
+     * @param {number} x - Starting x coordinate
+     * @param {number} y - Starting y coordinate
+     * @param {number} tolerance - Color tolerance
+     * @returns {ImageData} Image data with transparency applied
+     */
+    makeRegionTransparent(imageData, x, y, tolerance = 30) {
+        const region = this.floodFill(imageData, x, y, tolerance);
+        const newData = new ImageData(
+            new Uint8ClampedArray(imageData.data),
+            imageData.width,
+            imageData.height
+        );
+
+        // Set alpha to 0 for all pixels in region
+        for (const [px, py] of region) {
+            const idx = (py * imageData.width + px) * 4;
+            newData.data[idx + 3] = 0;
+        }
+
+        return newData;
+    }
+
+    /**
+     * Make all pixels of a specific color transparent
+     * @param {ImageData} imageData - Canvas image data
+     * @param {Array} targetColor - RGB array of color to make transparent
+     * @param {number} tolerance - Color tolerance
+     * @returns {ImageData} Image data with transparency applied
+     */
+    makeColorTransparent(imageData, targetColor, tolerance = 10) {
+        const newData = new ImageData(
+            new Uint8ClampedArray(imageData.data),
+            imageData.width,
+            imageData.height
+        );
+
+        for (let i = 0; i < newData.data.length; i += 4) {
+            const pixel = [newData.data[i], newData.data[i + 1], newData.data[i + 2]];
+
+            if (this.colorDistance(pixel, targetColor) <= tolerance) {
+                newData.data[i + 3] = 0;
+            }
+        }
+
+        return newData;
+    }
+
+    /**
+     * Apply smooth filter to reduce pixelation
+     * Uses a simple 3x3 box blur kernel
+     * @param {ImageData} imageData - Canvas image data
+     * @returns {ImageData} Smoothed image data
+     */
+    applySmoothFilter(imageData) {
+        const width = imageData.width;
+        const height = imageData.height;
+        const data = imageData.data;
+        const newData = new ImageData(
+            new Uint8ClampedArray(data),
+            width,
+            height
+        );
+
+        // Apply 3x3 box blur
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                let r = 0, g = 0, b = 0, count = 0;
+
+                // Sample 3x3 neighborhood
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        const idx = ((y + dy) * width + (x + dx)) * 4;
+                        r += data[idx];
+                        g += data[idx + 1];
+                        b += data[idx + 2];
+                        count++;
+                    }
+                }
+
+                // Average the values
+                const outIdx = (y * width + x) * 4;
+                newData.data[outIdx] = Math.round(r / count);
+                newData.data[outIdx + 1] = Math.round(g / count);
+                newData.data[outIdx + 2] = Math.round(b / count);
+                // Keep original alpha
+                newData.data[outIdx + 3] = data[outIdx + 3];
+            }
+        }
+
+        return newData;
+    }
 }
