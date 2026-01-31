@@ -35,21 +35,51 @@ class SVGExporter {
      * @param {ImageData} imageData - Posterized image data
      * @param {Array} palette - Color palette
      * @param {boolean} simple - Use simple mode (more smoothing)
+     * @param {number} outlineColorIndex - Index of outline color (rendered last), -1 for none
      * @returns {string} SVG string
      */
-    exportSVG(imageData, palette, simple = true) {
+    exportSVG(imageData, palette, simple = true, outlineColorIndex = -1) {
         const width = imageData.width;
         const height = imageData.height;
 
         let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">`;
 
-        // Create a layer for each color
-        for (const color of palette) {
+        // Separate outline color from others
+        const regularColors = [];
+        let outlineColor = null;
+
+        palette.forEach((color, index) => {
+            if (index === outlineColorIndex) {
+                outlineColor = color;
+            } else {
+                regularColors.push(color);
+            }
+        });
+
+        // Render regular colors first
+        for (const color of regularColors) {
             const mask = this.createColorMask(imageData, color);
             const paths = this.tracePaths(mask, width, height, simple);
 
             if (paths.length > 0) {
                 const hexColor = this.rgbToHex(color);
+                svg += `<g fill="${hexColor}">`;
+
+                for (const path of paths) {
+                    svg += `<path d="${path}" />`;
+                }
+
+                svg += `</g>`;
+            }
+        }
+
+        // Render outline color last (on top)
+        if (outlineColor) {
+            const mask = this.createColorMask(imageData, outlineColor);
+            const paths = this.tracePaths(mask, width, height, simple);
+
+            if (paths.length > 0) {
+                const hexColor = this.rgbToHex(outlineColor);
                 svg += `<g fill="${hexColor}">`;
 
                 for (const path of paths) {

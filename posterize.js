@@ -421,6 +421,79 @@ class Posterizer {
     }
 
     /**
+     * Clean edges to remove anti-aliasing artifacts
+     * Fills gaps at color boundaries by expanding solid colors
+     * @param {ImageData} imageData - Posterized image data
+     * @param {Array} palette - Color palette
+     * @returns {ImageData} Cleaned image data
+     */
+    cleanEdges(imageData, palette) {
+        const width = imageData.width;
+        const height = imageData.height;
+        const data = imageData.data;
+        const newData = new ImageData(
+            new Uint8ClampedArray(data),
+            width,
+            height
+        );
+
+        // Apply morphological dilation - expand colors into gaps
+        for (let y = 1; y < height - 1; y++) {
+            for (let x = 1; x < width - 1; x++) {
+                const idx = (y * width + x) * 4;
+                const pixel = [data[idx], data[idx + 1], data[idx + 2]];
+
+                // Check if this pixel is close to any palette color
+                let minDist = Infinity;
+                for (const color of palette) {
+                    const dist = this.colorDistance(pixel, color);
+                    if (dist < minDist) {
+                        minDist = dist;
+                    }
+                }
+
+                // If pixel is not close to any palette color (anti-aliased pixel)
+                if (minDist > 5) {
+                    // Find the most common palette color in the neighborhood
+                    const neighborColors = {};
+
+                    for (let dy = -1; dy <= 1; dy++) {
+                        for (let dx = -1; dx <= 1; dx++) {
+                            if (dx === 0 && dy === 0) continue;
+
+                            const nIdx = ((y + dy) * width + (x + dx)) * 4;
+                            const nPixel = [data[nIdx], data[nIdx + 1], data[nIdx + 2]];
+
+                            // Find closest palette color for this neighbor
+                            const closestColor = this.findNearestColor(nPixel, palette);
+                            const colorKey = closestColor.join(',');
+
+                            neighborColors[colorKey] = (neighborColors[colorKey] || 0) + 1;
+                        }
+                    }
+
+                    // Assign to most common neighbor color
+                    let maxCount = 0;
+                    let bestColor = palette[0];
+
+                    for (const [colorKey, count] of Object.entries(neighborColors)) {
+                        if (count > maxCount) {
+                            maxCount = count;
+                            bestColor = colorKey.split(',').map(Number);
+                        }
+                    }
+
+                    newData.data[idx] = bestColor[0];
+                    newData.data[idx + 1] = bestColor[1];
+                    newData.data[idx + 2] = bestColor[2];
+                }
+            }
+        }
+
+        return newData;
+    }
+
+    /**
      * Apply smooth filter to reduce pixelation
      * Uses a simple 3x3 box blur kernel
      * @param {ImageData} imageData - Canvas image data

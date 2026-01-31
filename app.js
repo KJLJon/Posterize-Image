@@ -18,7 +18,9 @@ class PosterizeApp {
         this.currentColorCount = 5;
         this.currentMode = 'replace';
         this.selectedColorIndex = -1;
+        this.outlineColorIndex = -1; // Index of color designated as outline
         this.smoothing = false; // Anti-aliasing option
+        this.edgeCleanup = true; // Remove anti-aliasing gaps
 
         // Transparency tool state
         this.transparencyToolActive = false;
@@ -63,6 +65,14 @@ class PosterizeApp {
         // Smoothing checkbox
         document.getElementById('smoothingCheckbox').addEventListener('change', (e) => {
             this.smoothing = e.target.checked;
+            if (this.originalImageData) {
+                this.applyPosterization();
+            }
+        });
+
+        // Edge cleanup checkbox
+        document.getElementById('edgeCleanupCheckbox').addEventListener('change', (e) => {
+            this.edgeCleanup = e.target.checked;
             if (this.originalImageData) {
                 this.applyPosterization();
             }
@@ -242,6 +252,14 @@ class PosterizeApp {
             );
         }
 
+        // Apply edge cleanup to remove anti-aliasing artifacts
+        if (this.edgeCleanup) {
+            this.posterizedImageData = this.posterizer.cleanEdges(
+                this.posterizedImageData,
+                this.currentPalette
+            );
+        }
+
         // Save original posterized state (before transparency)
         this.originalPosterizedImageData = new ImageData(
             new Uint8ClampedArray(this.posterizedImageData.data),
@@ -268,12 +286,42 @@ class PosterizeApp {
         this.currentPalette.forEach((color, index) => {
             const colorBox = document.createElement('div');
             colorBox.className = 'color-box';
+            if (index === this.outlineColorIndex) {
+                colorBox.classList.add('outline-color');
+            }
             const hexColor = this.posterizer.rgbToHex(color);
             colorBox.style.backgroundColor = hexColor;
             colorBox.setAttribute('data-hex', hexColor);
+
+            // Main click opens color picker
             colorBox.addEventListener('click', () => this.openColorPicker(index));
+
+            // Add outline badge
+            const outlineBadge = document.createElement('div');
+            outlineBadge.className = 'outline-badge';
+            outlineBadge.textContent = index === this.outlineColorIndex ? '◉' : '○';
+            outlineBadge.title = 'Click to toggle as outline color';
+            outlineBadge.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleOutlineColor(index);
+            });
+            colorBox.appendChild(outlineBadge);
+
             paletteDiv.appendChild(colorBox);
         });
+    }
+
+    /**
+     * Toggle a color as the outline color
+     * @param {number} index - Color index
+     */
+    toggleOutlineColor(index) {
+        if (this.outlineColorIndex === index) {
+            this.outlineColorIndex = -1; // Remove outline designation
+        } else {
+            this.outlineColorIndex = index; // Set as outline
+        }
+        this.displayPalette();
     }
 
     /**
@@ -436,11 +484,12 @@ class PosterizeApp {
             }
         });
 
-        // Generate SVG
+        // Generate SVG with outline color support
         const svgString = this.svgExporter.exportSVG(
             this.posterizedImageData,
             this.currentPalette,
-            simple
+            simple,
+            this.outlineColorIndex
         );
 
         // Create blob and download
