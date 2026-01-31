@@ -190,6 +190,56 @@ h3 {
     cursor: pointer;
 }
 
+/* Transparency Section */
+.transparency-section {
+    background: #fff3cd;
+    padding: 20px;
+    border-radius: 8px;
+    border: 2px solid #ffc107;
+}
+
+.section-description {
+    color: #856404;
+    font-size: 0.9rem;
+    margin-bottom: 15px;
+}
+
+.transparency-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 15px;
+}
+
+.transparency-info {
+    margin-top: 15px;
+    padding: 12px;
+    background: #fff;
+    border-left: 4px solid #667eea;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    color: #333;
+}
+
+.preview-box canvas {
+    cursor: default;
+}
+
+.preview-box canvas.transparency-active {
+    cursor: crosshair;
+}
+
+/* Checkerboard background for transparency */
+.preview-box canvas.has-transparency {
+    background-image:
+        linear-gradient(45deg, #ccc 25%, transparent 25%),
+        linear-gradient(-45deg, #ccc 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #ccc 75%),
+        linear-gradient(-45deg, transparent 75%, #ccc 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+}
+
 /* Color Palette */
 .color-palette {
     display: flex;
@@ -415,6 +465,14 @@ footer {
     }
 
     .export-btn {
+        width: 100%;
+    }
+
+    .transparency-buttons {
+        flex-direction: column;
+    }
+
+    .transparency-buttons .tool-btn {
         width: 100%;
     }
 
